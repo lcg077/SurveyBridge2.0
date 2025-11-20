@@ -1,58 +1,73 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from sqlalchemy.orm import Session
+from passlib.context import CryptContext
 
+from app.database import SessionLocal, engine, Base, get_db
+from app.models import User
+
+# 初始化 FastAPI 和模板
 app = FastAPI()
+templates = Jinja2Templates(directory="app/templates")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# 确保数据库建表
+Base.metadata.create_all(bind=engine)
 
-# 模板
-templates = Jinja2Templates(directory=BASE_DIR / "app" / "templates")
-
-# 静态文件
-app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
-
-# 模拟用户数据库
-fake_users_db = {
-    "test@example.com": "password123"
-}
-
+# 首页
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse(
-        "index.html", {"request": request, "show": None, "error": None}
+        "index.html",
+        {"request": request, "show": None, "error": None}
     )
 
+# 登录
 @app.post("/login", response_class=HTMLResponse)
-def login(request: Request, email: str = Form(...), password: str = Form(...)):
-    if email in fake_users_db and fake_users_db[email] == password:
-        return RedirectResponse(url="/dashboard", status_code=303)
-    else:
-        return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "show": "login", "error": "Invalid email or password."}
-        )
-
-@app.post("/register", response_class=HTMLResponse)
-def register(request: Request, email: str = Form(...), password: str = Form(...), confirm: str = Form(...)):
-    if email in fake_users_db:
-        error = "Email already registered."
-    elif password != confirm:
-        error = "Passwords do not match."
-    else:
-        fake_users_db[email] = password
-        # 注册成功跳回 login 弹窗
-        return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "show": "login", "error": "Registration successful! Please login."}
-        )
+def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == email).first()
+    if user and pwd_context.verify(password, user.password):
+        return RedirectResponse(url="/dashboard", status_code=302)
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "show": "register", "error": error}
+        {"request": request, "show": "login", "error": "Invalid email or password."}
     )
 
+# 注册
+@app.post("/register", response_class=HTMLResponse)
+def register(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    confirm: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    if password != confirm:
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "show": "register", "error": "Passwords do not match."}
+        )
+    if db.query(User).filter(User.email == email).first():
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "show": "register", "error": "Email already registered."}
+        )
+
+    hashed_password = pwd_context.hash(password)
+    new_user = User(email=email, password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return RedirectResponse(url="/dashboard", status_code=302)
+
+# Dashboard
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
     return templates.TemplateResponse(
