@@ -4,7 +4,8 @@ from pathlib import Path
 
 app = FastAPI()
 
-BASE_DIR = Path(__file__).resolve().parent.parent  # 往上一级到 project-root
+# main.py 在 api/ 下，index.html 在根目录
+BASE_DIR = Path(__file__).resolve().parent.parent
 INDEX_FILE = BASE_DIR / "index.html"
 
 @app.get("/", response_class=HTMLResponse)
