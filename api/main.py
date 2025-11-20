@@ -15,7 +15,7 @@ app = FastAPI()
 # 自动根据 main.py 的位置挂载 static
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app")
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+#app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 
