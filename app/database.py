@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./users.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:////tmp/users.db"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 
@@ -15,3 +15,5 @@ def get_db():
         yield db
     finally:
         db.close()
+
+print("DB URL:", SQLALCHEMY_DATABASE_URL)

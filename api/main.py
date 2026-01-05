@@ -6,18 +6,24 @@ from passlib.context import CryptContext
 from sqlalchemy import or_
 from pathlib import Path
 
-from app.database import engine, Base, get_db
-from app.models import User, Survey
+from app.database import engine, get_db
+from app.models import Base, User, Survey
+
 
 
 app = FastAPI()
+
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+
 
 # 确保模板路径正确
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory="app/templates")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-Base.metadata.create_all(bind=engine)
+
 
 
 router = APIRouter()
